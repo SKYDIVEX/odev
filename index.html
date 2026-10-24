@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ödev Panosu</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #eef1f6;
+    --card: #ffffff;
+    --ink: #14213d;
+    --muted: #5d6b86;
+    --line: #d5dbe7;
+    --accent: #2f5bea;
+    --mark: #ffd84d;
+    --danger: #c0392b;
+    --done: #2e8b57;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Bricolage Grotesque", system-ui, sans-serif;
+    line-height: 1.45;
+  }
+  main { max-width: 720px; margin: 0 auto; padding: 20px 14px 60px; }
+  h1 { font-size: 2rem; font-weight: 800; margin: 8px 0 2px; }
+  h1 span { background: var(--mark); padding: 0 8px; }
+  .sub { color: var(--muted); margin: 0 0 20px; }
+  h2 { font-size: 1.15rem; margin: 28px 0 10px; }
+  .tabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; }
+  .tab {
+    flex: 1 0 auto; border: 1px solid var(--line); background: var(--card);
+    padding: 8px 12px; border-radius: 8px; font: inherit; cursor: pointer; color: var(--ink);
+  }
+  .tab.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .lessons { list-style: none; margin: 10px 0 0; padding: 0; background: var(--card); border: 1px solid var(--line); border-radius: 10px; }
+  .lesson { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+  .lesson:last-child { border-bottom: none; }
+  .lesson.lunch { background: var(--paper); color: var(--muted); font-size: 0.9rem; }
+  .time { width: 108px; flex: none; color: var(--muted); font-variant-numeric: tabular-nums; font-size: 0.9rem; }
+  .name { flex: 1; font-weight: 600; }
+  .badge { background: var(--mark); border-radius: 99px; padding: 1px 9px; font-size: 0.8rem; font-weight: 600; }
+  form { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: grid; gap: 10px; }
+  label { display: grid; gap: 4px; font-size: 0.9rem; color: var(--muted); }
+  input, select, textarea {
+    font: inherit; color: var(--ink); padding: 9px 10px; border: 1px solid var(--line);
+    border-radius: 8px; background: #fff; width: 100%;
+  }
+  textarea { min-height: 70px; resize: vertical; }
+  button.primary {
+    background: var(--accent); color: #fff; border: none; border-radius: 8px;
+    padding: 11px; font: inherit; font-weight: 600; cursor: pointer;
+  }
+  button:disabled { opacity: 0.6; cursor: wait; }
+  button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .status { min-height: 1.2em; font-size: 0.9rem; color: var(--muted); }
+  .status.error { color: var(--danger); }
+  .group { margin-bottom: 16px; }
+  .group h3 { margin: 0 0 6px; font-size: 1rem; }
+  .group h3.today { background: var(--mark); display: inline-block; padding: 0 8px; }
+  .hw { display: flex; gap: 10px; align-items: flex-start; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-bottom: 6px; }
+  .hw.done { opacity: 0.55; }
+  .hw.done .hw-text { text-decoration: line-through; }
+  .hw input[type=checkbox] { width: 20px; height: 20px; margin-top: 3px; flex: none; }
+  .hw-body { flex: 1; min-width: 0; }
+  .hw-subject { font-weight: 600; }
+  .hw-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .hw-meta { color: var(--muted); font-size: 0.8rem; }
+  .del { background: none; border: none; color: var(--danger); cursor: pointer; font: inherit; font-size: 0.85rem; padding: 2px 4px; }
+  .empty { color: var(--muted); padding: 10px 0; }
+  details { margin-top: 16px; }
+  summary { cursor: pointer; color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <h1><span>Ödev</span> Panosu</h1>
+  <p class="sub">Bildiğin ödevi ekle, herkes görsün.</p>
+
+  <h2>Ders programı</h2>
+  <div class="tabs" id="tabs"></div>
+  <ul class="lessons" id="lessons"></ul>
+
+  <h2>Ödev ekle</h2>
+  <form id="addForm">
+    <label>Ders
+      <select id="fSubject" required></select>
+    </label>
+    <label>Ödev
+      <textarea id="fText" maxlength="500" placeholder="Örn: Sayfa 84, 1-10. sorular" required></textarea>
+    </label>
+    <label>Teslim tarihi
+      <input type="date" id="fDue" required>
+    </label>
+    <label>Adın (isteğe bağlı)
+      <input type="text" id="fAuthor" maxlength="30">
+    </label>
+    <button class="primary" type="submit" id="fSubmit">Ödevi ekle</button>
+    <div class="status" id="status"></div>
+  </form>
+
+  <h2>Yaklaşan ödevler</h2>
+  <div id="upcoming"></div>
+  <details>
+    <summary>Geçmiş ödevler</summary>
+    <div id="past"></div>
+  </details>
+</main>
+
+<script>
+  // Worker adresini buraya yaz (sonunda / olmasın)
+  var API_URL = "https://odev-panosu.enesseker2113.workers.dev";
+
+  var DAYS = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma"];
+
+  var SLOTS = [
+    "08:00 - 08:40",
+    "08:50 - 09:30",
+    "09:40 - 10:20",
+    "10:30 - 11:10",
+    "11:20 - 12:00",
+    "12:50 - 13:30",
+    "13:40 - 14:20",
+    "14:30 - 15:10"
+  ];
+
+  var SCHEDULE = {
+    "Pazartesi": ["Tarih", "Tarih", "Matematik", "Matematik", "Rehberlik", "İklim Bilgisi", "İngilizce", "İngilizce"],
+    "Salı": ["Coğrafya", "Coğrafya", "Türk Dili ve Edebiyatı", "Türk Dili ve Edebiyatı", "Matematik", "Matematik", "Müzik", "Müzik"],
+    "Çarşamba": ["Kimya", "Kimya", "Türk Dili ve Edebiyatı", "Peygamberimizin Hayatı", "Almanca", "Almanca", "Felsefe", "Felsefe"],
+    "Perşembe": ["İngilizce", "İngilizce", "Türk Dili ve Edebiyatı", "Türk Dili ve Edebiyatı", "Matematik", "Matematik", "Fizik", "Fizik"],
+    "Cuma": ["Biyoloji", "Biyoloji", "Bilgisayar Bilimi / Bilişim", "Aile Yaşamı / Kuramı", "Din Kültürü ve Ahlak Bilgisi", "Din Kültürü ve Ahlak Bilgisi", "Beden Eğitimi ve Spor", "Beden Eğitimi ve Spor"]
+  };
+
+  var homework = [];
+  var selectedDay = "Pazartesi";
+  var doneIds = loadDoneIds();
+
+  // ---------- Yardımcılar ----------
+
+  function loadDoneIds() {
+    try {
+      var raw = localStorage.getItem("odev-done");
+      if (raw === null) {
+        return {};
+      }
+      return JSON.parse(raw);
+    } catch (error) {
+      return {};
+    }
+  }
+
+  function saveDoneIds() {
+    try {
+      localStorage.setItem("odev-done", JSON.stringify(doneIds));
+    } catch (error) {
+      // depolama yoksa sessizce geç
+    }
+  }
+
+  function pad(number) {
+    if (number < 10) {
+      return "0" + number;
+    }
+    return String(number);
+  }
+
+  function dateToText(date) {
+    return date.getFullYear() + "-" + pad(date.getMonth() + 1) + "-" + pad(date.getDate());
+  }
+
+  function textToDate(text) {
+    var parts = text.split("-");
+    return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+  }
+
+  function todayText() {
+    return dateToText(new Date());
+  }
+
+  function tomorrowText() {
+    var date = new Date();
+    date.setDate(date.getDate() + 1);
+    return dateToText(date);
+  }
+
+  function formatDate(text) {
+    return textToDate(text).toLocaleDateString("tr-TR", {
+      weekday: "long",
+      day: "numeric",
+      month: "long"
+    });
+  }
+
+  function uniqueSubjects() {
+    var result = [];
+    for (var i = 0; i < DAYS.length; i++) {
+      var list = SCHEDULE[DAYS[i]];
+      for (var j = 0; j < list.length; j++) {
+        if (result.indexOf(list[j]) === -1) {
+          result.push(list[j]);
+        }
+      }
+    }
+    result.sort(function (a, b) {
+      return a.localeCompare(b, "tr");
+    });
+    return result;
+  }
+
+  function setStatus(message, isError) {
+    var element = document.getElementById("status");
+    element.textContent = message;
+    if (isError) {
+      element.className = "status error";
+    } else {
+      element.className = "status";
+    }
+  }
+
+  function countUpcomingFor(subject) {
+    var today = todayText();
+    var count = 0;
+    for (var i = 0; i < homework.length; i++) {
+      if (homework[i].subject === subject && homework[i].due >= today) {
+        count = count + 1;
+      }
+    }
+    return count;
+  }
+
+  // ---------- Ders programı ----------
+
+  function renderTabs() {
+    var container = document.getElementById("tabs");
+    container.innerHTML = "";
+    for (var i = 0; i < DAYS.length; i++) {
+      var dayName = DAYS[i];
+      var button = document.createElement("button");
+      button.type = "button";
+      button.textContent = dayName;
+      if (dayName === selectedDay) {
+        button.className = "tab active";
+      } else {
+        button.className = "tab";
+      }
+      button.addEventListener("click", makeTabHandler(dayName));
+      container.appendChild(button);
+    }
+  }
+
+  function makeTabHandler(dayName) {
+    return function () {
+      selectedDay = dayName;
+      renderTabs();
+      renderLessons();
+    };
+  }
+
+  function renderLessons() {
+    var list = document.getElementById("lessons");
+    list.innerHTML = "";
+    var subjects = SCHEDULE[selectedDay];
+
+    for (var i = 0; i < subjects.length; i++) {
+      if (i === 5) {
+        var lunch = document.createElement("li");
+        lunch.className = "lesson lunch";
+        var lunchTime = document.createElement("span");
+        lunchTime.className = "time";
+        lunchTime.textContent = "12:00 - 12:50";
+        var lunchName = document.createElement("span");
+        lunchName.className = "name";
+        lunchName.textContent = "Öğle arası";
+        lunch.appendChild(lunchTime);
+        lunch.appendChild(lunchName);
+        list.appendChild(lunch);
+      }
+
+      var row = document.createElement("li");
+      row.className = "lesson";
+
+      var time = document.createElement("span");
+      time.className = "time";
+      time.textContent = SLOTS[i];
+
+      var name = document.createElement("span");
+      name.className = "name";
+      name.textContent = subjects[i];
+
+      row.appendChild(time);
+      row.appendChild(name);
+
+      var count = countUpcomingFor(subjects[i]);
+      if (count > 0) {
+        var badge = document.createElement("span");
+        badge.className = "badge";
+        badge.textContent = count + " ödev";
+        row.appendChild(badge);
+      }
+
+      list.appendChild(row);
+    }
+  }
+
+  // ---------- Ödev listesi ----------
+
+  function buildHomeworkCard(item) {
+    var card = document.createElement("div");
+    var isDone = doneIds[item.id] === true;
+    if (isDone) {
+      card.className = "hw done";
+    } else {
+      card.className = "hw";
+    }
+
+    var checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = isDone;
+    checkbox.setAttribute("aria-label", "Yaptım olarak işaretle");
+    checkbox.addEventListener("change", function () {
+      if (checkbox.checked) {
+        doneIds[item.id] = true;
+      } else {
+        delete doneIds[item.id];
+      }
+      saveDoneIds();
+      renderHomework();
+    });
+
+    var body = document.createElement("div");
+    body.className = "hw-body";
+
+    var subject = document.createElement("div");
+    subject.className = "hw-subject";
+    subject.textContent = item.subject;
+
+    var text = document.createElement("div");
+    text.className = "hw-text";
+    text.textContent = item.text;
+
+    var meta = document.createElement("div");
+    meta.className = "hw-meta";
+    if (item.author !== "") {
+      meta.textContent = "Ekleyen: " + item.author;
+    } else {
+      meta.textContent = "Ekleyen: anonim";
+    }
+
+    body.appendChild(subject);
+    body.appendChild(text);
+    body.appendChild(meta);
+
+    var deleteButton = document.createElement("button");
+    deleteButton.type = "button";
+    deleteButton.className = "del";
+    deleteButton.textContent = "Sil";
+    deleteButton.addEventListener("click", function () {
+      deleteHomework(item.id);
+    });
+
+    card.appendChild(checkbox);
+    card.appendChild(body);
+    card.appendChild(deleteButton);
+    return card;
+  }
+
+  function fillGroups(container, items, emptyMessage, highlightToday) {
+    container.innerHTML = "";
+
+    if (items.length === 0) {
+      var empty = document.createElement("div");
+      empty.className = "empty";
+      empty.textContent = emptyMessage;
+      container.appendChild(empty);
+      return;
+    }
+
+    var dates = [];
+    for (var i = 0; i < items.length; i++) {
+      if (dates.indexOf(items[i].due) === -1) {
+        dates.push(items[i].due);
+      }
+    }
+    dates.sort();
+
+    var today = todayText();
+    for (var d = 0; d < dates.length; d++) {
+      var dateText = dates[d];
+      var group = document.createElement("div");
+      group.className = "group";
+
+      var heading = document.createElement("h3");
+      heading.textContent = formatDate(dateText);
+      if (highlightToday && dateText === today) {
+        heading.className = "today";
+        heading.textContent = "Bugün · " + formatDate(dateText);
+      }
+      group.appendChild(heading);
+
+      for (var k = 0; k < items.length; k++) {
+        if (items[k].due === dateText) {
+          group.appendChild(buildHomeworkCard(items[k]));
+        }
+      }
+      container.appendChild(group);
+    }
+  }
+
+  function renderHomework() {
+    var today = todayText();
+    var upcoming = [];
+    var past = [];
+    for (var i = 0; i < homework.length; i++) {
+      if (homework[i].due >= today) {
+        upcoming.push(homework[i]);
+      } else {
+        past.push(homework[i]);
+      }
+    }
+    fillGroups(document.getElementById("upcoming"), upcoming, "Henüz ödev yok. İlk ödevi sen ekle.", true);
+    fillGroups(document.getElementById("past"), past, "Geçmiş ödev yok.", false);
+    renderLessons();
+  }
+
+  // ---------- Sunucu işlemleri ----------
+
+  async function loadHomework() {
+    try {
+      var response = await fetch(API_URL + "/api/homework");
+      if (!response.ok) {
+        throw new Error("Sunucu hatası: " + response.status);
+      }
+      homework = await response.json();
+      renderHomework();
+    } catch (error) {
+      setStatus("Ödevler yüklenemedi. Sayfayı yenile ya da API_URL adresini kontrol et.", true);
+    }
+  }
+
+  async function addHomework(event) {
+    event.preventDefault();
+    var submitButton = document.getElementById("fSubmit");
+    submitButton.disabled = true;
+    setStatus("Ekleniyor...", false);
+
+    var payload = {
+      subject: document.getElementById("fSubject").value,
+      text: document.getElementById("fText").value,
+      due: document.getElementById("fDue").value,
+      author: document.getElementById("fAuthor").value
+    };
+
+    try {
+      var response = await fetch(API_URL + "/api/homework", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) {
+        throw new Error("Sunucu hatası: " + response.status);
+      }
+      try {
+        localStorage.setItem("odev-author", payload.author);
+      } catch (storageError) {
+        // önemli değil
+      }
+      document.getElementById("fText").value = "";
+      setStatus("Ödev eklendi.", false);
+      await loadHomework();
+    } catch (error) {
+      setStatus("Ödev eklenemedi. Bağlantını kontrol edip tekrar dene.", true);
+    }
+    submitButton.disabled = false;
+  }
+
+  async function deleteHomework(id) {
+    var sure = confirm("Bu ödev herkes için silinecek. Emin misin?");
+    if (!sure) {
+      return;
+    }
+    try {
+      var response = await fetch(API_URL + "/api/homework/" + id, { method: "DELETE" });
+      if (!response.ok) {
+        throw new Error("Sunucu hatası: " + response.status);
+      }
+      await loadHomework();
+    } catch (error) {
+      setStatus("Ödev silinemedi. Tekrar dene.", true);
+    }
+  }
+
+  // ---------- Başlangıç ----------
+
+  function init() {
+    // Bugün hafta içiyse o günü, hafta sonuysa Pazartesi'yi aç
+    var weekdayIndex = new Date().getDay();
+    if (weekdayIndex >= 1 && weekdayIndex <= 5) {
+      selectedDay = DAYS[weekdayIndex - 1];
+    }
+
+    var select = document.getElementById("fSubject");
+    var subjects = uniqueSubjects();
+    for (var i = 0; i < subjects.length; i++) {
+      var option = document.createElement("option");
+      option.value = subjects[i];
+      option.textContent = subjects[i];
+      select.appendChild(option);
+    }
+
+    document.getElementById("fDue").value = tomorrowText();
+    document.getElementById("fDue").min = todayText();
+
+    try {
+      var savedAuthor = localStorage.getItem("odev-author");
+      if (savedAuthor !== null) {
+        document.getElementById("fAuthor").value = savedAuthor;
+      }
+    } catch (error) {
+      // önemli değil
+    }
+
+    document.getElementById("addForm").addEventListener("submit", addHomework);
+
+    renderTabs();
+    renderLessons();
+    loadHomework();
+  }
+
+  init();
+</script>
+</body>
+</html>
