@@ -11,7 +11,6 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Ödevler">
-
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet">
 <style>
@@ -24,52 +23,47 @@
     --accent: #2f5bea;
     --mark: #ffd84d;
     --danger: #c0392b;
-    --done: #2e8b57;
   }
   * { box-sizing: border-box; }
   body {
-    margin: 0;
-    background: var(--paper);
-    color: var(--ink);
-    font-family: "Bricolage Grotesque", system-ui, sans-serif;
-    line-height: 1.45;
+    margin: 0; background: var(--paper); color: var(--ink);
+    font-family: "Bricolage Grotesque", system-ui, sans-serif; line-height: 1.45;
   }
-  main { max-width: 720px; margin: 0 auto; padding: 20px 14px 60px; }
-  h1 { font-size: 2rem; font-weight: 800; margin: 8px 0 2px; }
+  main { max-width: 640px; margin: 0 auto; padding: 16px 12px 60px; }
+  h1 { font-size: 1.8rem; font-weight: 800; margin: 4px 0 12px; }
   h1 span { background: var(--mark); padding: 0 8px; }
-  .sub { color: var(--muted); margin: 0 0 20px; }
-  h2 { font-size: 1.15rem; margin: 28px 0 10px; }
-  .tabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; }
-  .tab {
-    flex: 1 0 auto; border: 1px solid var(--line); background: var(--card);
-    padding: 8px 12px; border-radius: 8px; font: inherit; cursor: pointer; color: var(--ink);
+  h2 { font-size: 1.1rem; margin: 22px 0 8px; }
+
+  .cal { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px; }
+  .cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .cal-title { font-weight: 800; font-size: 1.1rem; text-transform: capitalize; }
+  .nav { border: 1px solid var(--line); background: var(--paper); border-radius: 8px; width: 40px; height: 36px; font: inherit; font-size: 1.1rem; cursor: pointer; color: var(--ink); }
+  .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .dow { text-align: center; font-size: 0.75rem; color: var(--muted); padding: 2px 0; }
+  .day {
+    position: relative; aspect-ratio: 1 / 1; border: 1px solid transparent; border-radius: 10px;
+    background: var(--paper); font: inherit; color: var(--ink); cursor: pointer; padding: 0;
+    display: flex; align-items: center; justify-content: center; font-weight: 600;
   }
-  .tab.active { background: var(--ink); color: #fff; border-color: var(--ink); }
-  .lessons { list-style: none; margin: 10px 0 0; padding: 0; background: var(--card); border: 1px solid var(--line); border-radius: 10px; }
-  .lesson { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+  .day.blank { background: none; cursor: default; }
+  .day.weekend { color: var(--muted); background: #f6f7fb; }
+  .day.today { border-color: var(--accent); }
+  .day.selected { background: var(--ink); color: #fff; }
+  .count {
+    position: absolute; top: 3px; right: 4px; min-width: 17px; height: 17px; border-radius: 99px;
+    background: var(--mark); color: var(--ink); font-size: 0.7rem; display: flex; align-items: center; justify-content: center; padding: 0 4px;
+  }
+
+  .panel { margin-top: 14px; }
+  .panel-title { font-size: 1.25rem; font-weight: 800; margin: 0 0 8px; text-transform: capitalize; }
+  .lessons { list-style: none; margin: 0; padding: 0; background: var(--card); border: 1px solid var(--line); border-radius: 10px; }
+  .lesson { display: flex; gap: 10px; padding: 8px 12px; border-bottom: 1px solid var(--line); }
   .lesson:last-child { border-bottom: none; }
   .lesson.lunch { background: var(--paper); color: var(--muted); font-size: 0.9rem; }
-  .time { width: 108px; flex: none; color: var(--muted); font-variant-numeric: tabular-nums; font-size: 0.9rem; }
+  .time { width: 104px; flex: none; color: var(--muted); font-size: 0.88rem; font-variant-numeric: tabular-nums; }
   .name { flex: 1; font-weight: 600; }
-  .badge { background: var(--mark); border-radius: 99px; padding: 1px 9px; font-size: 0.8rem; font-weight: 600; }
-  form { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: grid; gap: 10px; }
-  label { display: grid; gap: 4px; font-size: 0.9rem; color: var(--muted); }
-  input, select, textarea {
-    font: inherit; color: var(--ink); padding: 9px 10px; border: 1px solid var(--line);
-    border-radius: 8px; background: #fff; width: 100%;
-  }
-  textarea { min-height: 70px; resize: vertical; }
-  button.primary {
-    background: var(--accent); color: #fff; border: none; border-radius: 8px;
-    padding: 11px; font: inherit; font-weight: 600; cursor: pointer;
-  }
-  button:disabled { opacity: 0.6; cursor: wait; }
-  button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
-  .status { min-height: 1.2em; font-size: 0.9rem; color: var(--muted); }
-  .status.error { color: var(--danger); }
-  .group { margin-bottom: 16px; }
-  .group h3 { margin: 0 0 6px; font-size: 1rem; }
-  .group h3.today { background: var(--mark); display: inline-block; padding: 0 8px; }
+  .note { color: var(--muted); background: var(--card); border: 1px dashed var(--line); border-radius: 10px; padding: 10px 12px; }
+
   .hw { display: flex; gap: 10px; align-items: flex-start; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-bottom: 6px; }
   .hw.done { opacity: 0.55; }
   .hw.done .hw-text { text-decoration: line-through; }
@@ -79,74 +73,93 @@
   .hw-text { white-space: pre-wrap; overflow-wrap: anywhere; }
   .hw-meta { color: var(--muted); font-size: 0.8rem; }
   .del { background: none; border: none; color: var(--danger); cursor: pointer; font: inherit; font-size: 0.85rem; padding: 2px 4px; }
-  .empty { color: var(--muted); padding: 10px 0; }
-  details { margin-top: 16px; }
-  summary { cursor: pointer; color: var(--muted); }
+
+  form { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: grid; gap: 10px; }
+  label { display: grid; gap: 4px; font-size: 0.9rem; color: var(--muted); }
+  input, select, textarea { font: inherit; color: var(--ink); padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; background: #fff; width: 100%; }
+  textarea { min-height: 70px; resize: vertical; }
+  .primary { background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: 11px; font: inherit; font-weight: 600; cursor: pointer; }
+  .secondary { background: var(--card); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 10px; font: inherit; cursor: pointer; text-align: center; text-decoration: none; display: block; }
+  button:disabled { opacity: 0.6; cursor: wait; }
+  button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .status { min-height: 1.2em; font-size: 0.9rem; color: var(--muted); }
+  .status.error { color: var(--danger); }
+  .sync { display: grid; gap: 8px; margin-top: 26px; }
+  .sync p { margin: 0; color: var(--muted); font-size: 0.88rem; }
 </style>
 </head>
 <body>
 <main>
   <h1><span>Ödev</span> Panosu</h1>
-  <p class="sub">Bildiğin ödevi ekle, herkes görsün.</p>
 
-  <h2>Ders programı</h2>
-  <div class="tabs" id="tabs"></div>
-  <ul class="lessons" id="lessons"></ul>
+  <section class="cal">
+    <div class="cal-head">
+      <button class="nav" type="button" id="prevMonth" aria-label="Önceki ay">‹</button>
+      <div class="cal-title" id="calTitle"></div>
+      <button class="nav" type="button" id="nextMonth" aria-label="Sonraki ay">›</button>
+    </div>
+    <div class="grid" id="calGrid"></div>
+  </section>
 
-  <h2>Ödev ekle</h2>
-  <form id="addForm">
-    <label>Ders
-      <select id="fSubject" required></select>
-    </label>
-    <label>Ödev
-      <textarea id="fText" maxlength="500" placeholder="Örn: Sayfa 84, 1-10. sorular" required></textarea>
-    </label>
-    <label>Teslim tarihi
-      <input type="date" id="fDue" required>
-    </label>
-    <label>Adın (isteğe bağlı)
-      <input type="text" id="fAuthor" maxlength="30">
-    </label>
-    <button class="primary" type="submit" id="fSubmit">Ödevi ekle</button>
-    <div class="status" id="status"></div>
-  </form>
+  <section class="panel">
+    <h2 class="panel-title" id="panelTitle"></h2>
 
-  <h2>Yaklaşan ödevler</h2>
-  <div id="upcoming"></div>
-  <details>
-    <summary>Geçmiş ödevler</summary>
-    <div id="past"></div>
-  </details>
+    <h2>Ders programı</h2>
+    <div id="lessonBox"></div>
+
+    <h2>Ödevler</h2>
+    <div id="hwBox"></div>
+
+    <h2>Ödev ekle</h2>
+    <form id="addForm">
+      <label>Ders
+        <select id="fSubject" required></select>
+      </label>
+      <label>Ödev
+        <textarea id="fText" maxlength="500" placeholder="Örn: Sayfa 84, 1-10. sorular" required></textarea>
+      </label>
+      <label>Teslim tarihi
+        <input type="date" id="fDue" required>
+      </label>
+      <label>Adın (isteğe bağlı)
+        <input type="text" id="fAuthor" maxlength="30">
+      </label>
+      <button class="primary" type="submit" id="fSubmit">Ödevi ekle</button>
+      <div class="status" id="status"></div>
+    </form>
+  </section>
+
+  <section class="sync">
+    <a class="secondary" id="gcalLink" href="#" target="_blank" rel="noopener">Google Takvim'e ekle</a>
+    <button class="secondary" type="button" id="copyIcs">Takvim bağlantısını kopyala</button>
+    <p id="syncNote">Takvim bağlantısını Google Takvim'de "URL'den ekle" ile abone olursan dersler ve ödevler telefonundaki takvimde de görünür. Güncellenmesi birkaç saat sürebilir.</p>
+  </section>
 </main>
 
 <script>
-  // Worker adresini buraya yaz (sonunda / olmasın)
+  // Worker adresi (sonunda / olmasın)
   var API_URL = "https://odev-panosu.enesseker2113.workers.dev";
 
-  var DAYS = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma"];
+  var DAY_NAMES = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma"];
 
   var SLOTS = [
-    "08:00 - 08:40",
-    "08:50 - 09:30",
-    "09:40 - 10:20",
-    "10:30 - 11:10",
-    "11:20 - 12:00",
-    "12:50 - 13:30",
-    "13:40 - 14:20",
-    "14:30 - 15:10"
+    "08:00 - 08:40", "08:50 - 09:30", "09:40 - 10:20", "10:30 - 11:10",
+    "11:20 - 12:00", "12:50 - 13:30", "13:40 - 14:20", "14:30 - 15:10"
   ];
 
   var SCHEDULE = {
-    "Pazartesi": ["Tarih", "Tarih", "Matematik", "Matematik", "Rehberlik", "İklim Bilgisi", "İngilizce", "İngilizce"],
-    "Salı": ["Coğrafya", "Coğrafya", "Türk Dili ve Edebiyatı", "Türk Dili ve Edebiyatı", "Matematik", "Matematik", "Müzik", "Müzik"],
-    "Çarşamba": ["Kimya", "Kimya", "Türk Dili ve Edebiyatı", "Peygamberimizin Hayatı", "Almanca", "Almanca", "Felsefe", "Felsefe"],
-    "Perşembe": ["İngilizce", "İngilizce", "Türk Dili ve Edebiyatı", "Türk Dili ve Edebiyatı", "Matematik", "Matematik", "Fizik", "Fizik"],
-    "Cuma": ["Biyoloji", "Biyoloji", "Bilgisayar Bilimi / Bilişim", "Aile Yaşamı / Kuramı", "Din Kültürü ve Ahlak Bilgisi", "Din Kültürü ve Ahlak Bilgisi", "Beden Eğitimi ve Spor", "Beden Eğitimi ve Spor"]
+    1: ["Tarih", "Tarih", "Matematik", "Matematik", "Rehberlik", "İklim Bilgisi", "İngilizce", "İngilizce"],
+    2: ["Coğrafya", "Coğrafya", "Türk Dili ve Edebiyatı", "Türk Dili ve Edebiyatı", "Matematik", "Matematik", "Müzik", "Müzik"],
+    3: ["Kimya", "Kimya", "Türk Dili ve Edebiyatı", "Peygamberimizin Hayatı", "Almanca", "Almanca", "Felsefe", "Felsefe"],
+    4: ["İngilizce", "İngilizce", "Türk Dili ve Edebiyatı", "Türk Dili ve Edebiyatı", "Matematik", "Matematik", "Fizik", "Fizik"],
+    5: ["Biyoloji", "Biyoloji", "Bilgisayar Bilimi / Bilişim", "Aile Yaşamı / Kuramı", "Din Kültürü ve Ahlak Bilgisi", "Din Kültürü ve Ahlak Bilgisi", "Beden Eğitimi ve Spor", "Beden Eğitimi ve Spor"]
   };
 
   var homework = [];
-  var selectedDay = "Pazartesi";
   var doneIds = loadDoneIds();
+  var viewYear = new Date().getFullYear();
+  var viewMonth = new Date().getMonth();
+  var selectedDate = dateToText(new Date());
 
   // ---------- Yardımcılar ----------
 
@@ -186,38 +199,12 @@
     return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
   }
 
-  function todayText() {
-    return dateToText(new Date());
-  }
-
-  function tomorrowText() {
-    var date = new Date();
-    date.setDate(date.getDate() + 1);
-    return dateToText(date);
-  }
-
-  function formatDate(text) {
+  function formatLong(text) {
     return textToDate(text).toLocaleDateString("tr-TR", {
       weekday: "long",
       day: "numeric",
       month: "long"
     });
-  }
-
-  function uniqueSubjects() {
-    var result = [];
-    for (var i = 0; i < DAYS.length; i++) {
-      var list = SCHEDULE[DAYS[i]];
-      for (var j = 0; j < list.length; j++) {
-        if (result.indexOf(list[j]) === -1) {
-          result.push(list[j]);
-        }
-      }
-    }
-    result.sort(function (a, b) {
-      return a.localeCompare(b, "tr");
-    });
-    return result;
   }
 
   function setStatus(message, isError) {
@@ -230,49 +217,149 @@
     }
   }
 
-  function countUpcomingFor(subject) {
-    var today = todayText();
-    var count = 0;
+  function uniqueSubjects() {
+    var result = [];
+    for (var day = 1; day <= 5; day++) {
+      var list = SCHEDULE[day];
+      for (var j = 0; j < list.length; j++) {
+        if (result.indexOf(list[j]) === -1) {
+          result.push(list[j]);
+        }
+      }
+    }
+    result.sort(function (a, b) {
+      return a.localeCompare(b, "tr");
+    });
+    return result;
+  }
+
+  function homeworkForDate(dateText) {
+    var result = [];
     for (var i = 0; i < homework.length; i++) {
-      if (homework[i].subject === subject && homework[i].due >= today) {
-        count = count + 1;
+      if (homework[i].due === dateText) {
+        result.push(homework[i]);
       }
     }
-    return count;
+    return result;
   }
 
-  // ---------- Ders programı ----------
-
-  function renderTabs() {
-    var container = document.getElementById("tabs");
-    container.innerHTML = "";
-    for (var i = 0; i < DAYS.length; i++) {
-      var dayName = DAYS[i];
-      var button = document.createElement("button");
-      button.type = "button";
-      button.textContent = dayName;
-      if (dayName === selectedDay) {
-        button.className = "tab active";
-      } else {
-        button.className = "tab";
+  function countsByDate() {
+    var counts = {};
+    for (var i = 0; i < homework.length; i++) {
+      var due = homework[i].due;
+      if (counts[due] === undefined) {
+        counts[due] = 0;
       }
-      button.addEventListener("click", makeTabHandler(dayName));
-      container.appendChild(button);
+      counts[due] = counts[due] + 1;
+    }
+    return counts;
+  }
+
+  // ---------- Takvim ----------
+
+  function renderCalendar() {
+    var title = new Date(viewYear, viewMonth, 1).toLocaleDateString("tr-TR", {
+      month: "long",
+      year: "numeric"
+    });
+    document.getElementById("calTitle").textContent = title;
+
+    var grid = document.getElementById("calGrid");
+    grid.innerHTML = "";
+
+    var shortNames = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"];
+    for (var h = 0; h < shortNames.length; h++) {
+      var head = document.createElement("div");
+      head.className = "dow";
+      head.textContent = shortNames[h];
+      grid.appendChild(head);
+    }
+
+    var firstDay = new Date(viewYear, viewMonth, 1);
+    var offset = (firstDay.getDay() + 6) % 7;
+    var daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+    var counts = countsByDate();
+    var todayText = dateToText(new Date());
+
+    for (var b = 0; b < offset; b++) {
+      var blank = document.createElement("div");
+      blank.className = "day blank";
+      grid.appendChild(blank);
+    }
+
+    for (var day = 1; day <= daysInMonth; day++) {
+      var date = new Date(viewYear, viewMonth, day);
+      var text = dateToText(date);
+      var weekday = date.getDay();
+
+      var cell = document.createElement("button");
+      cell.type = "button";
+      cell.textContent = String(day);
+
+      var classes = "day";
+      if (weekday === 0 || weekday === 6) {
+        classes = classes + " weekend";
+      }
+      if (text === todayText) {
+        classes = classes + " today";
+      }
+      if (text === selectedDate) {
+        classes = classes + " selected";
+      }
+      cell.className = classes;
+      cell.setAttribute("aria-label", formatLong(text));
+
+      if (counts[text] !== undefined) {
+        var badge = document.createElement("span");
+        badge.className = "count";
+        badge.textContent = String(counts[text]);
+        cell.appendChild(badge);
+      }
+
+      cell.addEventListener("click", makeDayHandler(text));
+      grid.appendChild(cell);
     }
   }
 
-  function makeTabHandler(dayName) {
+  function makeDayHandler(text) {
     return function () {
-      selectedDay = dayName;
-      renderTabs();
-      renderLessons();
+      selectedDate = text;
+      document.getElementById("fDue").value = text;
+      renderAll();
     };
   }
 
+  function changeMonth(delta) {
+    viewMonth = viewMonth + delta;
+    if (viewMonth < 0) {
+      viewMonth = 11;
+      viewYear = viewYear - 1;
+    }
+    if (viewMonth > 11) {
+      viewMonth = 0;
+      viewYear = viewYear + 1;
+    }
+    renderCalendar();
+  }
+
+  // ---------- Seçili gün paneli ----------
+
   function renderLessons() {
-    var list = document.getElementById("lessons");
-    list.innerHTML = "";
-    var subjects = SCHEDULE[selectedDay];
+    var box = document.getElementById("lessonBox");
+    box.innerHTML = "";
+    var weekday = textToDate(selectedDate).getDay();
+
+    if (weekday === 0 || weekday === 6) {
+      var note = document.createElement("div");
+      note.className = "note";
+      note.textContent = "Hafta sonu, ders yok.";
+      box.appendChild(note);
+      return;
+    }
+
+    var subjects = SCHEDULE[weekday];
+    var list = document.createElement("ul");
+    list.className = "lessons";
 
     for (var i = 0; i < subjects.length; i++) {
       if (i === 5) {
@@ -291,31 +378,18 @@
 
       var row = document.createElement("li");
       row.className = "lesson";
-
       var time = document.createElement("span");
       time.className = "time";
       time.textContent = SLOTS[i];
-
       var name = document.createElement("span");
       name.className = "name";
       name.textContent = subjects[i];
-
       row.appendChild(time);
       row.appendChild(name);
-
-      var count = countUpcomingFor(subjects[i]);
-      if (count > 0) {
-        var badge = document.createElement("span");
-        badge.className = "badge";
-        badge.textContent = count + " ödev";
-        row.appendChild(badge);
-      }
-
       list.appendChild(row);
     }
+    box.appendChild(list);
   }
-
-  // ---------- Ödev listesi ----------
 
   function buildHomeworkCard(item) {
     var card = document.createElement("div");
@@ -377,62 +451,28 @@
     return card;
   }
 
-  function fillGroups(container, items, emptyMessage, highlightToday) {
-    container.innerHTML = "";
+  function renderHomework() {
+    var box = document.getElementById("hwBox");
+    box.innerHTML = "";
+    var items = homeworkForDate(selectedDate);
 
     if (items.length === 0) {
-      var empty = document.createElement("div");
-      empty.className = "empty";
-      empty.textContent = emptyMessage;
-      container.appendChild(empty);
+      var note = document.createElement("div");
+      note.className = "note";
+      note.textContent = "Bu güne ödev eklenmemiş.";
+      box.appendChild(note);
       return;
     }
-
-    var dates = [];
     for (var i = 0; i < items.length; i++) {
-      if (dates.indexOf(items[i].due) === -1) {
-        dates.push(items[i].due);
-      }
-    }
-    dates.sort();
-
-    var today = todayText();
-    for (var d = 0; d < dates.length; d++) {
-      var dateText = dates[d];
-      var group = document.createElement("div");
-      group.className = "group";
-
-      var heading = document.createElement("h3");
-      heading.textContent = formatDate(dateText);
-      if (highlightToday && dateText === today) {
-        heading.className = "today";
-        heading.textContent = "Bugün · " + formatDate(dateText);
-      }
-      group.appendChild(heading);
-
-      for (var k = 0; k < items.length; k++) {
-        if (items[k].due === dateText) {
-          group.appendChild(buildHomeworkCard(items[k]));
-        }
-      }
-      container.appendChild(group);
+      box.appendChild(buildHomeworkCard(items[i]));
     }
   }
 
-  function renderHomework() {
-    var today = todayText();
-    var upcoming = [];
-    var past = [];
-    for (var i = 0; i < homework.length; i++) {
-      if (homework[i].due >= today) {
-        upcoming.push(homework[i]);
-      } else {
-        past.push(homework[i]);
-      }
-    }
-    fillGroups(document.getElementById("upcoming"), upcoming, "Henüz ödev yok. İlk ödevi sen ekle.", true);
-    fillGroups(document.getElementById("past"), past, "Geçmiş ödev yok.", false);
+  function renderAll() {
+    document.getElementById("panelTitle").textContent = formatLong(selectedDate);
+    renderCalendar();
     renderLessons();
+    renderHomework();
   }
 
   // ---------- Sunucu işlemleri ----------
@@ -444,9 +484,9 @@
         throw new Error("Sunucu hatası: " + response.status);
       }
       homework = await response.json();
-      renderHomework();
+      renderAll();
     } catch (error) {
-      setStatus("Ödevler yüklenemedi. Sayfayı yenile ya da API_URL adresini kontrol et.", true);
+      setStatus("Ödevler yüklenemedi. Sayfayı yenile.", true);
     }
   }
 
@@ -479,6 +519,11 @@
       }
       document.getElementById("fText").value = "";
       setStatus("Ödev eklendi.", false);
+
+      selectedDate = payload.due;
+      var newDate = textToDate(payload.due);
+      viewYear = newDate.getFullYear();
+      viewMonth = newDate.getMonth();
       await loadHomework();
     } catch (error) {
       setStatus("Ödev eklenemedi. Bağlantını kontrol edip tekrar dene.", true);
@@ -502,15 +547,28 @@
     }
   }
 
+  // ---------- Takvim aboneliği ----------
+
+  function setupSync() {
+    var icsUrl = API_URL + "/calendar.ics";
+    var webcalUrl = icsUrl.replace("https://", "webcal://");
+    document.getElementById("gcalLink").href =
+      "https://calendar.google.com/calendar/r?cid=" + webcalUrl;
+
+    document.getElementById("copyIcs").addEventListener("click", async function () {
+      var note = document.getElementById("syncNote");
+      try {
+        await navigator.clipboard.writeText(icsUrl);
+        note.textContent = "Bağlantı kopyalandı. Google Takvim → Diğer takvimler (+) → URL'den ekle kısmına yapıştır.";
+      } catch (error) {
+        note.textContent = "Kopyalanamadı. Bağlantı: " + icsUrl;
+      }
+    });
+  }
+
   // ---------- Başlangıç ----------
 
   function init() {
-    // Bugün hafta içiyse o günü, hafta sonuysa Pazartesi'yi aç
-    var weekdayIndex = new Date().getDay();
-    if (weekdayIndex >= 1 && weekdayIndex <= 5) {
-      selectedDay = DAYS[weekdayIndex - 1];
-    }
-
     var select = document.getElementById("fSubject");
     var subjects = uniqueSubjects();
     for (var i = 0; i < subjects.length; i++) {
@@ -520,8 +578,7 @@
       select.appendChild(option);
     }
 
-    document.getElementById("fDue").value = tomorrowText();
-    document.getElementById("fDue").min = todayText();
+    document.getElementById("fDue").value = selectedDate;
 
     try {
       var savedAuthor = localStorage.getItem("odev-author");
@@ -532,10 +589,27 @@
       // önemli değil
     }
 
+    document.getElementById("fDue").addEventListener("change", function () {
+      var value = document.getElementById("fDue").value;
+      if (value !== "") {
+        selectedDate = value;
+        var date = textToDate(value);
+        viewYear = date.getFullYear();
+        viewMonth = date.getMonth();
+        renderAll();
+      }
+    });
+
+    document.getElementById("prevMonth").addEventListener("click", function () {
+      changeMonth(-1);
+    });
+    document.getElementById("nextMonth").addEventListener("click", function () {
+      changeMonth(1);
+    });
     document.getElementById("addForm").addEventListener("submit", addHomework);
 
-    renderTabs();
-    renderLessons();
+    setupSync();
+    renderAll();
     loadHomework();
   }
 
