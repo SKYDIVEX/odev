@@ -86,6 +86,11 @@
   .status.error { color: var(--danger); }
   .sync { display: grid; gap: 8px; margin-top: 26px; }
   .sync p { margin: 0; color: var(--muted); font-size: 0.88rem; }
+  .lesson.pick { cursor: pointer; align-items: center; }
+  .lesson.picked { background: #fff6cc; box-shadow: inset 4px 0 0 var(--accent); }
+  .lesson .badge { background: var(--mark); border-radius: 99px; padding: 1px 9px; font-size: 0.8rem; font-weight: 600; }
+  .chosen { font-weight: 800; font-size: 1.05rem; }
+  .up-date { margin: 14px 0 6px; font-size: 1rem; text-transform: capitalize; }
 </style>
 </head>
 <body>
@@ -111,10 +116,9 @@
     <div id="hwBox"></div>
 
     <h2>Ödev ekle</h2>
-    <form id="addForm">
-      <label>Ders
-        <select id="fSubject" required></select>
-      </label>
+    <div class="note" id="formHint">Ödev eklemek için yukarıdaki ders programından bir derse dokun.</div>
+    <form id="addForm" style="display:none">
+      <div class="chosen" id="chosenLesson"></div>
       <label>Ödev
         <textarea id="fText" maxlength="500" placeholder="Örn: Sayfa 84, 1-10. sorular" required></textarea>
       </label>
@@ -127,6 +131,11 @@
       <button class="primary" type="submit" id="fSubmit">Ödevi ekle</button>
       <div class="status" id="status"></div>
     </form>
+  </section>
+
+  <section>
+    <h2>Yaklaşan ödevler</h2>
+    <div id="upcomingBox"></div>
   </section>
 
   <section class="sync">
@@ -160,6 +169,7 @@
   var viewYear = new Date().getFullYear();
   var viewMonth = new Date().getMonth();
   var selectedDate = dateToText(new Date());
+  var selectedLesson = null;
 
   // ---------- Yardımcılar ----------
 
@@ -324,6 +334,7 @@
   function makeDayHandler(text) {
     return function () {
       selectedDate = text;
+      selectedLesson = null;
       document.getElementById("fDue").value = text;
       renderAll();
     };
@@ -377,7 +388,13 @@
       }
 
       var row = document.createElement("li");
-      row.className = "lesson";
+      var rowClass = "lesson pick";
+      if (selectedLesson !== null && selectedLesson.index === i) {
+        rowClass = rowClass + " picked";
+      }
+      row.className = rowClass;
+      row.tabIndex = 0;
+      row.setAttribute("role", "button");
       var time = document.createElement("span");
       time.className = "time";
       time.textContent = SLOTS[i];
@@ -386,6 +403,23 @@
       name.textContent = subjects[i];
       row.appendChild(time);
       row.appendChild(name);
+
+      var lessonCount = countHomeworkFor(subjects[i], selectedDate);
+      if (lessonCount > 0) {
+        var lessonBadge = document.createElement("span");
+        lessonBadge.className = "badge";
+        lessonBadge.textContent = lessonCount + " ödev";
+        row.appendChild(lessonBadge);
+      }
+
+      var pickHandler = makeLessonHandler(i, subjects[i]);
+      row.addEventListener("click", pickHandler);
+      row.addEventListener("keydown", function (keyEvent) {
+        if (keyEvent.key === "Enter" || keyEvent.key === " ") {
+          keyEvent.preventDefault();
+        }
+      });
+      row.addEventListener("keyup", makeKeyHandler(pickHandler));
       list.appendChild(row);
     }
     box.appendChild(list);
@@ -411,7 +445,7 @@
         delete doneIds[item.id];
       }
       saveDoneIds();
-      renderHomework();
+      renderAll();
     });
 
     var body = document.createElement("div");
@@ -468,11 +502,94 @@
     }
   }
 
+  function countHomeworkFor(subject, dateText) {
+    var count = 0;
+    for (var i = 0; i < homework.length; i++) {
+      if (homework[i].due === dateText && homework[i].subject === subject) {
+        count = count + 1;
+      }
+    }
+    return count;
+  }
+
+  function makeLessonHandler(index, subject) {
+    return function () {
+      selectedLesson = { index: index, subject: subject };
+      renderAll();
+      document.getElementById("addForm").scrollIntoView({ behavior: "smooth", block: "center" });
+    };
+  }
+
+  function makeKeyHandler(handler) {
+    return function (keyEvent) {
+      if (keyEvent.key === "Enter" || keyEvent.key === " ") {
+        handler();
+      }
+    };
+  }
+
+  function renderForm() {
+    var form = document.getElementById("addForm");
+    var hint = document.getElementById("formHint");
+    if (selectedLesson === null) {
+      form.style.display = "none";
+      hint.style.display = "block";
+      return;
+    }
+    form.style.display = "grid";
+    hint.style.display = "none";
+    document.getElementById("chosenLesson").textContent =
+      selectedLesson.subject + " · " + SLOTS[selectedLesson.index];
+  }
+
+  function renderUpcoming() {
+    var box = document.getElementById("upcomingBox");
+    box.innerHTML = "";
+    var today = dateToText(new Date());
+    var items = [];
+    for (var i = 0; i < homework.length; i++) {
+      if (homework[i].due >= today) {
+        items.push(homework[i]);
+      }
+    }
+    items.sort(function (a, b) {
+      if (a.due < b.due) {
+        return -1;
+      }
+      if (a.due > b.due) {
+        return 1;
+      }
+      return a.createdAt - b.createdAt;
+    });
+
+    if (items.length === 0) {
+      var note = document.createElement("div");
+      note.className = "note";
+      note.textContent = "Yaklaşan ödev yok.";
+      box.appendChild(note);
+      return;
+    }
+
+    var lastDue = "";
+    for (var k = 0; k < items.length; k++) {
+      if (items[k].due !== lastDue) {
+        var heading = document.createElement("h3");
+        heading.className = "up-date";
+        heading.textContent = formatLong(items[k].due);
+        box.appendChild(heading);
+        lastDue = items[k].due;
+      }
+      box.appendChild(buildHomeworkCard(items[k]));
+    }
+  }
+
   function renderAll() {
     document.getElementById("panelTitle").textContent = formatLong(selectedDate);
     renderCalendar();
     renderLessons();
     renderHomework();
+    renderForm();
+    renderUpcoming();
   }
 
   // ---------- Sunucu işlemleri ----------
@@ -492,12 +609,16 @@
 
   async function addHomework(event) {
     event.preventDefault();
+    if (selectedLesson === null) {
+      setStatus("Önce ders programından bir ders seç.", true);
+      return;
+    }
     var submitButton = document.getElementById("fSubmit");
     submitButton.disabled = true;
     setStatus("Ekleniyor...", false);
 
     var payload = {
-      subject: document.getElementById("fSubject").value,
+      subject: selectedLesson.subject,
       text: document.getElementById("fText").value,
       due: document.getElementById("fDue").value,
       author: document.getElementById("fAuthor").value
@@ -569,15 +690,6 @@
   // ---------- Başlangıç ----------
 
   function init() {
-    var select = document.getElementById("fSubject");
-    var subjects = uniqueSubjects();
-    for (var i = 0; i < subjects.length; i++) {
-      var option = document.createElement("option");
-      option.value = subjects[i];
-      option.textContent = subjects[i];
-      select.appendChild(option);
-    }
-
     document.getElementById("fDue").value = selectedDate;
 
     try {
@@ -593,6 +705,7 @@
       var value = document.getElementById("fDue").value;
       if (value !== "") {
         selectedDate = value;
+        selectedLesson = null;
         var date = textToDate(value);
         viewYear = date.getFullYear();
         viewMonth = date.getMonth();
