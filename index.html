@@ -91,6 +91,11 @@
   .lesson .badge { background: var(--mark); border-radius: 99px; padding: 1px 9px; font-size: 0.8rem; font-weight: 600; }
   .chosen { font-weight: 800; font-size: 1.05rem; }
   .up-date { margin: 14px 0 6px; font-size: 1rem; text-transform: capitalize; }
+  .day.holiday { background: #fde4e1; color: #a8321f; }
+  .day.holiday.selected { background: var(--ink); color: #fff; }
+  .check { display: flex; align-items: center; gap: 10px; color: var(--ink); font-size: 0.95rem; }
+  .check input { width: 20px; height: 20px; flex: none; }
+  .legend { margin: 8px 2px 0; font-size: 0.8rem; color: var(--muted); }
 </style>
 </head>
 <body>
@@ -104,6 +109,7 @@
       <button class="nav" type="button" id="nextMonth" aria-label="Sonraki ay">›</button>
     </div>
     <div class="grid" id="calGrid"></div>
+    <p class="legend">Kırmızı günler tatil. Güne dokununca tatilin adı yazar.</p>
   </section>
 
   <section class="panel">
@@ -139,6 +145,10 @@
   </section>
 
   <section class="sync">
+    <label class="check">
+      <input type="checkbox" id="withHolidays" checked>
+      Tatilleri de Google Takvim'e ekle
+    </label>
     <a class="secondary" id="gcalLink" href="#" target="_blank" rel="noopener">Google Takvim'e ekle</a>
     <button class="secondary" type="button" id="copyIcs">Takvim bağlantısını kopyala</button>
     <p id="syncNote">Takvim bağlantısını Google Takvim'de "URL'den ekle" ile abone olursan dersler ve ödevler telefonundaki takvimde de görünür. Güncellenmesi birkaç saat sürebilir.</p>
@@ -170,6 +180,49 @@
   var viewMonth = new Date().getMonth();
   var selectedDate = dateToText(new Date());
   var selectedLesson = null;
+
+  // MEB 2026-2027 takvimi ve resmi tatiller. Sonradan gelen kayıt öncekinin adını değiştirir.
+  var SCHOOL_START = "2026-09-14";
+  var SCHOOL_END = "2027-06-25";
+  var HOLIDAY_RANGES = [
+    { start: "2026-10-29", end: "2026-10-29", name: "Cumhuriyet Bayramı" },
+    { start: "2026-11-16", end: "2026-11-20", name: "1. dönem ara tatili" },
+    { start: "2027-01-01", end: "2027-01-01", name: "Yılbaşı" },
+    { start: "2027-01-25", end: "2027-02-05", name: "Yarıyıl tatili" },
+    { start: "2027-03-08", end: "2027-03-12", name: "2. dönem ara tatili" },
+    { start: "2027-03-09", end: "2027-03-11", name: "Ramazan Bayramı" },
+    { start: "2027-04-23", end: "2027-04-23", name: "Ulusal Egemenlik ve Çocuk Bayramı" },
+    { start: "2027-05-17", end: "2027-05-18", name: "Kurban Bayramı" },
+    { start: "2027-05-19", end: "2027-05-19", name: "Kurban Bayramı ve 19 Mayıs Gençlik ve Spor Bayramı" }
+  ];
+  var HALF_DAYS = {
+    "2026-10-28": "Cumhuriyet Bayramı arifesi, öğleden sonra tatil"
+  };
+  var holidayMap = buildHolidayMap();
+
+  function buildHolidayMap() {
+    var map = {};
+    for (var r = 0; r < HOLIDAY_RANGES.length; r++) {
+      var range = HOLIDAY_RANGES[r];
+      var current = textToDate(range.start);
+      var last = textToDate(range.end);
+      while (current <= last) {
+        map[dateToText(current)] = range.name;
+        current.setDate(current.getDate() + 1);
+      }
+    }
+    return map;
+  }
+
+  function holidayName(dateText) {
+    if (holidayMap[dateText] !== undefined) {
+      return holidayMap[dateText];
+    }
+    if (dateText < SCHOOL_START || dateText > SCHOOL_END) {
+      return "Yaz tatili";
+    }
+    return null;
+  }
 
   // ---------- Yardımcılar ----------
 
@@ -309,6 +362,8 @@
       var classes = "day";
       if (weekday === 0 || weekday === 6) {
         classes = classes + " weekend";
+      } else if (holidayName(text) !== null) {
+        classes = classes + " holiday";
       }
       if (text === todayText) {
         classes = classes + " today";
@@ -366,6 +421,24 @@
       note.textContent = "Hafta sonu, ders yok.";
       box.appendChild(note);
       return;
+    }
+
+    var holiday = holidayName(selectedDate);
+    if (holiday !== null) {
+      var holidayNote = document.createElement("div");
+      holidayNote.className = "note";
+      holidayNote.textContent = "🎉 " + holiday + ". Okul yok.";
+      box.appendChild(holidayNote);
+      return;
+    }
+
+    var halfDayText = HALF_DAYS[selectedDate];
+    if (halfDayText !== undefined) {
+      var halfNote = document.createElement("div");
+      halfNote.className = "note";
+      halfNote.style.marginBottom = "8px";
+      halfNote.textContent = "⚠️ " + halfDayText + ". Dersler normal programda görünür, saatleri okuldan teyit et.";
+      box.appendChild(halfNote);
     }
 
     var subjects = SCHEDULE[weekday];
@@ -670,14 +743,27 @@
 
   // ---------- Takvim aboneliği ----------
 
-  function setupSync() {
-    var icsUrl = API_URL + "/calendar.ics";
-    var webcalUrl = icsUrl.replace("https://", "webcal://");
+  function currentIcsUrl() {
+    var withHolidays = document.getElementById("withHolidays").checked;
+    if (withHolidays) {
+      return API_URL + "/calendar.ics?tatiller=evet";
+    }
+    return API_URL + "/calendar.ics?tatiller=hayir";
+  }
+
+  function updateSyncLink() {
+    var webcalUrl = currentIcsUrl().replace("https://", "webcal://");
     document.getElementById("gcalLink").href =
       "https://calendar.google.com/calendar/r?cid=" + webcalUrl;
+  }
+
+  function setupSync() {
+    updateSyncLink();
+    document.getElementById("withHolidays").addEventListener("change", updateSyncLink);
 
     document.getElementById("copyIcs").addEventListener("click", async function () {
       var note = document.getElementById("syncNote");
+      var icsUrl = currentIcsUrl();
       try {
         await navigator.clipboard.writeText(icsUrl);
         note.textContent = "Bağlantı kopyalandı. Google Takvim → Diğer takvimler (+) → URL'den ekle kısmına yapıştır.";
