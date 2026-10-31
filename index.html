@@ -95,6 +95,13 @@
   .day.holiday.selected { background: var(--ink); color: #fff; }
   .check { display: flex; align-items: center; gap: 10px; color: var(--ink); font-size: 0.95rem; }
   .check input { width: 20px; height: 20px; flex: none; }
+  .sync details { color: var(--muted); font-size: 0.9rem; }
+  .sync details > * { margin-top: 8px; }
+  .sync summary { cursor: pointer; }
+  .gstatus { min-height: 1.2em; font-size: 0.9rem; color: var(--muted); }
+  .gstatus.error { color: var(--danger); }
+  .day.exam::after { content: ""; position: absolute; bottom: 5px; left: 50%; width: 6px; height: 6px; margin-left: -3px; border-radius: 50%; background: var(--danger); }
+  .exam-badge { background: #fde4e1; color: #a8321f; border-radius: 99px; padding: 1px 9px; font-size: 0.8rem; font-weight: 600; }
   .legend { margin: 8px 2px 0; font-size: 0.8rem; color: var(--muted); }
 </style>
 </head>
@@ -109,7 +116,7 @@
       <button class="nav" type="button" id="nextMonth" aria-label="Sonraki ay">›</button>
     </div>
     <div class="grid" id="calGrid"></div>
-    <p class="legend">Kırmızı günler tatil. Güne dokununca tatilin adı yazar.</p>
+    <p class="legend">Kırmızı günler tatil, altındaki kırmızı nokta o gün yazılı sınav olduğunu gösterir.</p>
   </section>
 
   <section class="panel">
@@ -149,12 +156,18 @@
       <input type="checkbox" id="withHolidays" checked>
       Tatilleri de Google Takvim'e ekle
     </label>
+    <button class="primary" type="button" id="googleSync">Telefon takvimime ekle (Google ile giriş)</button>
+    <div class="gstatus" id="googleStatus"></div>
+    <details>
+      <summary>Abonelik yöntemi (Xiaomi takvimde görünmeyebilir)</summary>
     <a class="secondary" id="gcalLink" href="#" target="_blank" rel="noopener">Google Takvim'e ekle</a>
     <button class="secondary" type="button" id="copyIcs">Takvim bağlantısını kopyala</button>
     <p id="syncNote">Takvim bağlantısını Google Takvim'de "URL'den ekle" ile abone olursan dersler ve ödevler telefonundaki takvimde de görünür. Güncellenmesi birkaç saat sürebilir.</p>
+    </details>
   </section>
 </main>
 
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <script>
   // Worker adresi (sonunda / olmasın)
   var API_URL = "https://odev-panosu.enesseker2113.workers.dev";
@@ -175,6 +188,7 @@
   };
 
   var homework = [];
+  var homeworkLoaded = false;
   var doneIds = loadDoneIds();
   var viewYear = new Date().getFullYear();
   var viewMonth = new Date().getMonth();
@@ -198,6 +212,28 @@
   var HALF_DAYS = {
     "2026-10-28": "Cumhuriyet Bayramı arifesi, öğleden sonra tatil"
   };
+  // 2026-2027 1. dönem 1. yazılı takvimi, 10. sınıflar. lesson: o gün kaçıncı ders saati
+  var EXAMS = [
+    { date: "2026-11-03", lesson: 2, subject: "Biyoloji" },
+    { date: "2026-11-03", lesson: 4, subject: "Aile Yaşamı / Kuramı" },
+    { date: "2026-11-04", lesson: 2, subject: "Kimya" },
+    { date: "2026-11-04", lesson: 4, subject: "Tarih" },
+    { date: "2026-11-05", lesson: 2, subject: "Matematik" },
+    { date: "2026-11-05", lesson: 4, subject: "İklim Bilgisi" },
+    { date: "2026-11-06", lesson: 2, subject: "Fizik" },
+    { date: "2026-11-06", lesson: 4, subject: "Felsefe" },
+    { date: "2026-11-10", lesson: 4, subject: "Coğrafya" },
+    { date: "2026-11-10", lesson: 6, subject: "Almanca" },
+    { date: "2026-11-11", lesson: 4, subject: "Din Kültürü ve Ahlak Bilgisi" },
+    { date: "2026-11-12", lesson: 3, subject: "Türk Dili ve Edebiyatı" },
+    { date: "2026-11-12", lesson: 6, subject: "Bilgisayar Bilimi / Bilişim" },
+    { date: "2026-11-13", lesson: 2, subject: "İngilizce" },
+    { date: "2026-11-13", lesson: 4, subject: "Siyer (Peygamberimizin Hayatı)" }
+  ];
+  var examDays = {};
+  for (var examIndex = 0; examIndex < EXAMS.length; examIndex++) {
+    examDays[EXAMS[examIndex].date] = true;
+  }
   var holidayMap = buildHolidayMap();
 
   function buildHolidayMap() {
@@ -365,6 +401,9 @@
       } else if (holidayName(text) !== null) {
         classes = classes + " holiday";
       }
+      if (examDays[dateToText(date)] === true) {
+        classes = classes + " exam";
+      }
       if (text === todayText) {
         classes = classes + " today";
       }
@@ -483,6 +522,15 @@
         lessonBadge.className = "badge";
         lessonBadge.textContent = lessonCount + " ödev";
         row.appendChild(lessonBadge);
+      }
+
+      for (var e = 0; e < EXAMS.length; e++) {
+        if (EXAMS[e].date === selectedDate && EXAMS[e].lesson === i + 1) {
+          var examBadge = document.createElement("span");
+          examBadge.className = "exam-badge";
+          examBadge.textContent = "📝 " + EXAMS[e].subject + " yazılısı";
+          row.appendChild(examBadge);
+        }
       }
 
       var pickHandler = makeLessonHandler(i, subjects[i]);
@@ -674,6 +722,7 @@
         throw new Error("Sunucu hatası: " + response.status);
       }
       homework = await response.json();
+      homeworkLoaded = true;
       renderAll();
     } catch (error) {
       setStatus("Ödevler yüklenemedi. Sayfayı yenile.", true);
@@ -773,6 +822,299 @@
     });
   }
 
+  // ---------- Telefon takvimine doğrudan ekleme (Google ile giriş) ----------
+
+  // Google Cloud'dan alacağın istemci kimliğini buraya yaz
+  var CLIENT_ID = "BURAYA_CLIENT_ID_GELECEK";
+  var CAL_SCOPE = "https://www.googleapis.com/auth/calendar.events";
+  var CAL_BASE = "https://www.googleapis.com/calendar/v3/calendars/primary/events";
+  var FIRST_MONDAY = "2026-10-26";
+  var DAY_CODES = ["", "MO", "TU", "WE", "TH", "FR"];
+  var accessToken = null;
+  var tokenExpiresAt = 0;
+
+  function setGoogleStatus(message, isError) {
+    var element = document.getElementById("googleStatus");
+    element.textContent = message;
+    if (isError) {
+      element.className = "gstatus error";
+    } else {
+      element.className = "gstatus";
+    }
+  }
+
+  function addDaysToText(dateText, count) {
+    var date = textToDate(dateText);
+    date.setDate(date.getDate() + count);
+    return dateToText(date);
+  }
+
+  function compactDate(dateText) {
+    return dateText.replace(/-/g, "");
+  }
+
+  function wait(milliseconds) {
+    return new Promise(function (resolve) {
+      setTimeout(resolve, milliseconds);
+    });
+  }
+
+  function makeAllDayBody(summary, description, dateText, reminderMinutes) {
+    var overrides = [];
+    if (reminderMinutes > 0) {
+      overrides.push({ method: "popup", minutes: reminderMinutes });
+    }
+    return {
+      summary: summary,
+      description: description,
+      start: { date: dateText },
+      end: { date: addDaysToText(dateText, 1) },
+      extendedProperties: { private: { odevpanosu: "1" } },
+      reminders: { useDefault: false, overrides: overrides }
+    };
+  }
+
+  function buildDesiredEvents(includeHolidays) {
+    var events = [];
+    var holidayDates = Object.keys(holidayMap).sort();
+
+    // Haftalık tekrar eden dersler (arka arkaya aynı dersler tek blok)
+    for (var day = 1; day <= 5; day++) {
+      var subjects = SCHEDULE[day];
+      var firstDate = addDaysToText(FIRST_MONDAY, day - 1);
+      var i = 0;
+      while (i < subjects.length) {
+        var end = i;
+        while (end + 1 < subjects.length && subjects[end + 1] === subjects[i] && end !== 4) {
+          end = end + 1;
+        }
+        var startTime = SLOTS[i].split(" - ")[0];
+        var endTime = SLOTS[end].split(" - ")[1];
+
+        var recurrence = ["RRULE:FREQ=WEEKLY;UNTIL=20270625T205959Z;BYDAY=" + DAY_CODES[day]];
+        var exdates = [];
+        for (var h = 0; h < holidayDates.length; h++) {
+          var holidayDate = holidayDates[h];
+          if (holidayDate >= firstDate && holidayDate <= SCHOOL_END && textToDate(holidayDate).getDay() === day) {
+            exdates.push(compactDate(holidayDate) + "T" + startTime.replace(":", "") + "00");
+          }
+        }
+        if (exdates.length > 0) {
+          recurrence.push("EXDATE;TZID=Europe/Istanbul:" + exdates.join(","));
+        }
+
+        events.push({
+          id: "ders" + day + "n" + i,
+          body: {
+            summary: subjects[i],
+            start: { dateTime: firstDate + "T" + startTime + ":00", timeZone: "Europe/Istanbul" },
+            end: { dateTime: firstDate + "T" + endTime + ":00", timeZone: "Europe/Istanbul" },
+            recurrence: recurrence,
+            extendedProperties: { private: { odevpanosu: "1" } },
+            reminders: { useDefault: false, overrides: [] }
+          }
+        });
+        i = end + 1;
+      }
+    }
+
+    // Tatiller (isteğe bağlı)
+    if (includeHolidays) {
+      var today = dateToText(new Date());
+      for (var k = 0; k < holidayDates.length; k++) {
+        var key = holidayDates[k];
+        var weekday = textToDate(key).getDay();
+        if (weekday >= 1 && weekday <= 5 && key >= today) {
+          events.push({
+            id: "tatil" + compactDate(key),
+            body: makeAllDayBody("🎉 " + holidayMap[key], "", key, 0)
+          });
+        }
+      }
+      var halfKeys = Object.keys(HALF_DAYS);
+      for (var q = 0; q < halfKeys.length; q++) {
+        events.push({
+          id: "half" + compactDate(halfKeys[q]),
+          body: makeAllDayBody("⚠️ " + HALF_DAYS[halfKeys[q]], "", halfKeys[q], 0)
+        });
+      }
+    }
+
+    // Yazılı sınavlar: ilgili ders saatinde, bir gün önceden hatırlatmalı
+    for (var x = 0; x < EXAMS.length; x++) {
+      var exam = EXAMS[x];
+      var examStart = SLOTS[exam.lesson - 1].split(" - ")[0];
+      var examEnd = SLOTS[exam.lesson - 1].split(" - ")[1];
+      events.push({
+        id: "sinav" + compactDate(exam.date) + exam.lesson,
+        body: {
+          summary: "📝 " + exam.subject + " yazılısı",
+          start: { dateTime: exam.date + "T" + examStart + ":00", timeZone: "Europe/Istanbul" },
+          end: { dateTime: exam.date + "T" + examEnd + ":00", timeZone: "Europe/Istanbul" },
+          extendedProperties: { private: { odevpanosu: "1" } },
+          reminders: { useDefault: false, overrides: [{ method: "popup", minutes: 1440 }] }
+        }
+      });
+    }
+
+    // Ödevler: teslim gününde tüm gün etkinliği, bir gün önce 18:00'de hatırlatma
+    for (var w = 0; w < homework.length; w++) {
+      var item = homework[w];
+      events.push({
+        id: "odev" + item.id.replace(/-/g, ""),
+        body: makeAllDayBody("📚 " + item.subject + " ödevi", item.text, item.due, 360)
+      });
+    }
+
+    return events;
+  }
+
+  function requestToken() {
+    return new Promise(function (resolve, reject) {
+      if (accessToken !== null && Date.now() < tokenExpiresAt) {
+        resolve(accessToken);
+        return;
+      }
+      if (typeof google === "undefined" || google.accounts === undefined) {
+        reject(new Error("Google giriş betiği yüklenemedi. İnternetini kontrol edip sayfayı yenile."));
+        return;
+      }
+      var client = google.accounts.oauth2.initTokenClient({
+        client_id: CLIENT_ID,
+        scope: CAL_SCOPE,
+        callback: function (response) {
+          if (response.error !== undefined) {
+            reject(new Error("Giriş yapılamadı: " + response.error));
+            return;
+          }
+          accessToken = response.access_token;
+          tokenExpiresAt = Date.now() + (Number(response.expires_in) - 60) * 1000;
+          resolve(accessToken);
+        },
+        error_callback: function (error) {
+          reject(new Error("Giriş penceresi açılamadı ya da kapatıldı (" + error.type + ")"));
+        }
+      });
+      client.requestAccessToken();
+    });
+  }
+
+  async function calendarFetch(method, url, bodyObject) {
+    var response = null;
+    var attempt = 0;
+    while (attempt < 3) {
+      var options = { method: method, headers: { "Authorization": "Bearer " + accessToken } };
+      if (bodyObject !== null) {
+        options.headers["Content-Type"] = "application/json";
+        options.body = JSON.stringify(bodyObject);
+      }
+      response = await fetch(url, options);
+      if (response.status === 403 || response.status === 429) {
+        attempt = attempt + 1;
+        await wait(1500 * attempt);
+      } else {
+        return response;
+      }
+    }
+    return response;
+  }
+
+  async function makeApiError(response) {
+    var message = "Takvim hatası (" + response.status + ")";
+    try {
+      var data = await response.json();
+      if (data.error !== undefined && data.error.message !== undefined) {
+        message = message + ": " + data.error.message;
+      }
+    } catch (error) {
+      // gövde okunamadıysa genel mesaj kalsın
+    }
+    return new Error(message);
+  }
+
+  async function upsertEvent(eventItem) {
+    var body = eventItem.body;
+    body.id = eventItem.id;
+    var response = await calendarFetch("POST", CAL_BASE, body);
+    if (response.status === 409) {
+      response = await calendarFetch("PUT", CAL_BASE + "/" + eventItem.id, body);
+    }
+    if (!response.ok) {
+      throw await makeApiError(response);
+    }
+  }
+
+  async function removeStaleEvents(desiredIds) {
+    var removed = 0;
+    var pageToken = "";
+    var keepGoing = true;
+    while (keepGoing) {
+      var url = CAL_BASE + "?maxResults=250&showDeleted=false&singleEvents=false&privateExtendedProperty=" +
+        encodeURIComponent("odevpanosu=1");
+      if (pageToken !== "") {
+        url = url + "&pageToken=" + encodeURIComponent(pageToken);
+      }
+      var response = await calendarFetch("GET", url, null);
+      if (!response.ok) {
+        throw await makeApiError(response);
+      }
+      var data = await response.json();
+      var items = [];
+      if (data.items !== undefined) {
+        items = data.items;
+      }
+      for (var i = 0; i < items.length; i++) {
+        if (desiredIds[items[i].id] !== true) {
+          await calendarFetch("DELETE", CAL_BASE + "/" + items[i].id, null);
+          removed = removed + 1;
+        }
+      }
+      if (data.nextPageToken === undefined) {
+        keepGoing = false;
+      } else {
+        pageToken = data.nextPageToken;
+      }
+    }
+    return removed;
+  }
+
+  async function syncToGoogle() {
+    var button = document.getElementById("googleSync");
+
+    if (CLIENT_ID.indexOf("BURAYA") === 0) {
+      setGoogleStatus("Önce Google Cloud'dan istemci kimliği (Client ID) alıp index.html içindeki CLIENT_ID satırına yazman gerek.", true);
+      return;
+    }
+    if (!homeworkLoaded) {
+      setGoogleStatus("Ödevler henüz yüklenmedi. Sayfayı yenileyip tekrar dene.", true);
+      return;
+    }
+
+    button.disabled = true;
+    try {
+      setGoogleStatus("Google girişi bekleniyor...", false);
+      await requestToken();
+
+      var includeHolidays = document.getElementById("withHolidays").checked;
+      var desired = buildDesiredEvents(includeHolidays);
+      var desiredIds = {};
+
+      for (var i = 0; i < desired.length; i++) {
+        setGoogleStatus("Ekleniyor: " + (i + 1) + " / " + desired.length, false);
+        await upsertEvent(desired[i]);
+        desiredIds[desired[i].id] = true;
+      }
+
+      setGoogleStatus("Eski kayıtlar temizleniyor...", false);
+      var removed = await removeStaleEvents(desiredIds);
+
+      setGoogleStatus("Tamam: " + desired.length + " etkinlik takvimine eklendi/güncellendi, " + removed + " eski etkinlik silindi. Telefonda görünmesi birkaç dakika sürebilir.", false);
+    } catch (error) {
+      setGoogleStatus(error.message, true);
+    }
+    button.disabled = false;
+  }
+
   // ---------- Başlangıç ----------
 
   function init() {
@@ -808,6 +1150,7 @@
     document.getElementById("addForm").addEventListener("submit", addHomework);
 
     setupSync();
+    document.getElementById("googleSync").addEventListener("click", syncToGoogle);
     renderAll();
     loadHomework();
   }
