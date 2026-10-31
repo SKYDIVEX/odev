@@ -156,7 +156,15 @@
       <input type="checkbox" id="withHolidays" checked>
       Tatilleri de Google Takvim'e ekle
     </label>
-    <button class="primary" type="button" id="googleSync">Telefon takvimime ekle (Google ile giriş)</button>
+    <div id="autoOff">
+      <button class="primary" type="button" id="autoStart">Otomatik eşitle (bir kez giriş yap, sonra kendiliğinden)</button>
+    </div>
+    <div id="autoOn" style="display:none">
+      <div class="note" id="autoText"></div>
+      <button class="secondary" type="button" id="autoStop">Otomatik eşitlemeyi kapat</button>
+    </div>
+    <div class="gstatus" id="autoStatus"></div>
+    <button class="secondary" type="button" id="googleSync">Tek seferlik ekle (şimdi, tarayıcıdan)</button>
     <div class="gstatus" id="googleStatus"></div>
     <details>
       <summary>Abonelik yöntemi (Xiaomi takvimde görünmeyebilir)</summary>
@@ -828,7 +836,7 @@
 
   // Google Cloud'dan alacağın istemci kimliğini buraya yaz
   var CLIENT_ID = "1042255379375-30el8a6c2sgsnjavjbn7gsg9v3ddpp9m.apps.googleusercontent.com";
-  var CAL_SCOPE = "https://www.googleapis.com/auth/calendar.events";
+  var CAL_SCOPE = "https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/userinfo.email";
   var CAL_BASE = "https://www.googleapis.com/calendar/v3/calendars/primary/events";
   var FIRST_MONDAY = "2026-10-26";
   var DAY_CODES = ["", "MO", "TU", "WE", "TH", "FR"];
@@ -971,6 +979,39 @@
     return events;
   }
 
+  function readSavedEmail() {
+    try {
+      var saved = localStorage.getItem("odev-google-email");
+      if (saved === null) {
+        return "";
+      }
+      return saved;
+    } catch (error) {
+      return "";
+    }
+  }
+
+  // İlk girişte e-postayı kaydeder, sonraki girişlerde hesap seçme ekranı çıkmaz
+  async function rememberEmail() {
+    if (readSavedEmail() !== "") {
+      return;
+    }
+    try {
+      var response = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+        headers: { "Authorization": "Bearer " + accessToken }
+      });
+      if (!response.ok) {
+        return;
+      }
+      var data = await response.json();
+      if (data.email !== undefined) {
+        localStorage.setItem("odev-google-email", data.email);
+      }
+    } catch (error) {
+      // kaydedilemezse bir sonraki girişte hesap sorulur, sorun değil
+    }
+  }
+
   function requestToken() {
     return new Promise(function (resolve, reject) {
       if (accessToken !== null && Date.now() < tokenExpiresAt) {
@@ -981,7 +1022,7 @@
         reject(new Error("Google giriş betiği yüklenemedi. İnternetini kontrol edip sayfayı yenile."));
         return;
       }
-      var client = google.accounts.oauth2.initTokenClient({
+      var clientConfig = {
         client_id: CLIENT_ID,
         scope: CAL_SCOPE,
         callback: function (response) {
@@ -996,7 +1037,12 @@
         error_callback: function (error) {
           reject(new Error("Giriş penceresi açılamadı ya da kapatıldı (" + error.type + ")"));
         }
-      });
+      };
+      var savedEmail = readSavedEmail();
+      if (savedEmail !== "") {
+        clientConfig.hint = savedEmail;
+      }
+      var client = google.accounts.oauth2.initTokenClient(clientConfig);
       client.requestAccessToken();
     });
   }
@@ -1096,6 +1142,7 @@
     try {
       setGoogleStatus("Google girişi bekleniyor...", false);
       await requestToken();
+      await rememberEmail();
 
       var includeHolidays = document.getElementById("withHolidays").checked;
       var desired = buildDesiredEvents(includeHolidays);
@@ -1115,6 +1162,103 @@
       setGoogleStatus(error.message, true);
     }
     button.disabled = false;
+  }
+
+  // ---------- Otomatik eşitleme (sunucu üzerinden) ----------
+
+  function setAutoStatus(message, isError) {
+    var element = document.getElementById("autoStatus");
+    element.textContent = message;
+    if (isError) {
+      element.className = "gstatus error";
+    } else {
+      element.className = "gstatus";
+    }
+  }
+
+  function readAuto() {
+    try {
+      var raw = localStorage.getItem("odev-auto");
+      if (raw === null) {
+        return null;
+      }
+      return JSON.parse(raw);
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function renderAuto() {
+    var auto = readAuto();
+    if (auto === null) {
+      document.getElementById("autoOff").style.display = "block";
+      document.getElementById("autoOn").style.display = "none";
+      return;
+    }
+    document.getElementById("autoOff").style.display = "none";
+    document.getElementById("autoOn").style.display = "block";
+    document.getElementById("autoText").textContent =
+      "Otomatik eşitleme açık: " + auto.email + ". Yeni ödevler birkaç dakika içinde takvimine düşer.";
+  }
+
+  // Giriş sonrası siteye dönüldüğünde adres sonundaki sonucu okur
+  function handleAuthHash() {
+    var hash = window.location.hash;
+    if (hash.indexOf("#eslesme=") === 0) {
+      var value = hash.slice("#eslesme=".length);
+      var separator = value.indexOf(":");
+      if (separator > 0) {
+        var token = value.slice(0, separator);
+        var email = decodeURIComponent(value.slice(separator + 1));
+        try {
+          localStorage.setItem("odev-auto", JSON.stringify({ email: email, token: token }));
+        } catch (error) {
+          setAutoStatus("Bağlandı ama tarayıcı bilgiyi kaydedemedi. Kapatma butonu çalışmayabilir.", true);
+        }
+        setAutoStatus("Bağlandı. İlk eşitleme birkaç dakika sürebilir.", false);
+      }
+    } else if (hash.indexOf("#eslesme-hata=") === 0) {
+      var reason = decodeURIComponent(hash.slice("#eslesme-hata=".length));
+      setAutoStatus("Bağlanamadı (" + reason + "). Tekrar dene.", true);
+    } else {
+      return;
+    }
+    history.replaceState(null, "", window.location.pathname + window.location.search);
+  }
+
+  function startAuto() {
+    var withHolidays = document.getElementById("withHolidays").checked;
+    var holidayValue = "hayir";
+    if (withHolidays) {
+      holidayValue = "evet";
+    }
+    window.location.href = API_URL + "/auth/start?tatiller=" + holidayValue;
+  }
+
+  async function stopAuto() {
+    var auto = readAuto();
+    if (auto === null) {
+      return;
+    }
+    var sure = confirm("Otomatik eşitleme kapatılacak ve siteden eklenen etkinlikler takviminden silinecek. Emin misin?");
+    if (!sure) {
+      return;
+    }
+    try {
+      var response = await fetch(API_URL + "/auth/disconnect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: auto.email, token: auto.token })
+      });
+      if (!response.ok) {
+        throw new Error("Sunucu hatası: " + response.status);
+      }
+      localStorage.removeItem("odev-auto");
+      renderAuto();
+      setAutoStatus("Kapatıldı. Etkinlikler birkaç dakika içinde takvimden silinecek.", false);
+    } catch (error) {
+      setAutoStatus("Kapatılamadı. Tekrar dene.", true);
+    }
   }
 
   // ---------- Başlangıç ----------
@@ -1153,6 +1297,10 @@
 
     setupSync();
     document.getElementById("googleSync").addEventListener("click", syncToGoogle);
+    document.getElementById("autoStart").addEventListener("click", startAuto);
+    document.getElementById("autoStop").addEventListener("click", stopAuto);
+    handleAuthHash();
+    renderAuto();
     renderAll();
     loadHomework();
   }
