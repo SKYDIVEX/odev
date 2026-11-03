@@ -60,7 +60,7 @@
   .lesson { display: flex; gap: 10px; padding: 8px 12px; border-bottom: 1px solid var(--line); }
   .lesson:last-child { border-bottom: none; }
   .lesson.lunch { background: var(--paper); color: var(--muted); font-size: 0.9rem; }
-  .time { width: 104px; flex: none; color: var(--muted); font-size: 0.88rem; font-variant-numeric: tabular-nums; }
+  .time { white-space: pre-line; width: 104px; flex: none; color: var(--muted); font-size: 0.88rem; font-variant-numeric: tabular-nums; }
   .name { flex: 1; font-weight: 600; }
   .note { color: var(--muted); background: var(--card); border: 1px dashed var(--line); border-radius: 10px; padding: 10px 12px; }
 
@@ -101,6 +101,8 @@
   .gstatus { min-height: 1.2em; font-size: 0.9rem; color: var(--muted); }
   .gstatus.error { color: var(--danger); }
   .day.exam::after { content: ""; position: absolute; bottom: 5px; left: 50%; width: 6px; height: 6px; margin-left: -3px; border-radius: 50%; background: var(--danger); }
+  .lesson.exam-row { background: #fde4e1; color: #a8321f; }
+  .lesson.exam-row .time { color: #a8321f; }
   .exam-badge { background: #fde4e1; color: #a8321f; border-radius: 99px; padding: 1px 9px; font-size: 0.8rem; font-weight: 600; }
   .legend { margin: 8px 2px 0; font-size: 0.8rem; color: var(--muted); }
 </style>
@@ -494,7 +496,14 @@
     var list = document.createElement("ul");
     list.className = "lessons";
 
-    for (var i = 0; i < subjects.length; i++) {
+    var i = 0;
+    while (i < subjects.length) {
+      // Arka arkaya aynı dersleri (öğle arasını geçmeden) tek satırda birleştir
+      var last = i;
+      while (last + 1 < subjects.length && subjects[last + 1] === subjects[i] && last !== 4) {
+        last = last + 1;
+      }
+
       if (i === 5) {
         var lunch = document.createElement("li");
         lunch.className = "lesson lunch";
@@ -517,12 +526,15 @@
       row.className = rowClass;
       row.tabIndex = 0;
       row.setAttribute("role", "button");
+
       var time = document.createElement("span");
       time.className = "time";
-      time.textContent = SLOTS[i];
+      time.textContent = blockTime(i, last, "\n");
+
       var name = document.createElement("span");
       name.className = "name";
       name.textContent = subjects[i];
+
       row.appendChild(time);
       row.appendChild(name);
 
@@ -534,16 +546,7 @@
         row.appendChild(lessonBadge);
       }
 
-      for (var e = 0; e < EXAMS.length; e++) {
-        if (EXAMS[e].date === selectedDate && EXAMS[e].lesson === i + 1) {
-          var examBadge = document.createElement("span");
-          examBadge.className = "exam-badge";
-          examBadge.textContent = "📝 " + EXAMS[e].subject + " yazılısı";
-          row.appendChild(examBadge);
-        }
-      }
-
-      var pickHandler = makeLessonHandler(i, subjects[i]);
+      var pickHandler = makeLessonHandler(i, last, subjects[i]);
       row.addEventListener("click", pickHandler);
       row.addEventListener("keydown", function (keyEvent) {
         if (keyEvent.key === "Enter" || keyEvent.key === " ") {
@@ -552,6 +555,26 @@
       });
       row.addEventListener("keyup", makeKeyHandler(pickHandler));
       list.appendChild(row);
+
+      // Bu bloktaki yazılılar: dersin hemen altında, kendi saatiyle
+      for (var e = 0; e < EXAMS.length; e++) {
+        var examHour = EXAMS[e].lesson;
+        if (EXAMS[e].date === selectedDate && examHour >= i + 1 && examHour <= last + 1) {
+          var examRow = document.createElement("li");
+          examRow.className = "lesson exam-row";
+          var examTime = document.createElement("span");
+          examTime.className = "time";
+          examTime.textContent = SLOTS[examHour - 1];
+          var examName = document.createElement("span");
+          examName.className = "name";
+          examName.textContent = "📝 " + EXAMS[e].subject + " yazılısı (" + examHour + ". ders)";
+          examRow.appendChild(examTime);
+          examRow.appendChild(examName);
+          list.appendChild(examRow);
+        }
+      }
+
+      i = last + 1;
     }
     box.appendChild(list);
   }
@@ -643,9 +666,18 @@
     return count;
   }
 
-  function makeLessonHandler(index, subject) {
+  // Birleşik blokta her dersin kendi saatini ayrı ayrı yazar
+  function blockTime(firstIndex, lastIndex, separator) {
+    var parts = [];
+    for (var s = firstIndex; s <= lastIndex; s++) {
+      parts.push(SLOTS[s]);
+    }
+    return parts.join(separator);
+  }
+
+  function makeLessonHandler(index, lastIndex, subject) {
     return function () {
-      selectedLesson = { index: index, subject: subject };
+      selectedLesson = { index: index, last: lastIndex, subject: subject };
       renderAll();
       document.getElementById("addForm").scrollIntoView({ behavior: "smooth", block: "center" });
     };
@@ -670,7 +702,7 @@
     form.style.display = "grid";
     hint.style.display = "none";
     document.getElementById("chosenLesson").textContent =
-      selectedLesson.subject + " · " + SLOTS[selectedLesson.index];
+      selectedLesson.subject + " · " + blockTime(selectedLesson.index, selectedLesson.last, ", ");
   }
 
   function renderUpcoming() {
